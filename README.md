@@ -6,8 +6,9 @@ Ce projet configure et exécute un agent basé sur **Strands Agent SDK** utilisa
 
 ## Structure des fichiers
 
+- **`config.properties`** : Fichier de propriétés pour configurer le nom du modèle (`model_id`) et l'hôte (`host`).
 - **`agent_ollama.py`** : Programme Python minimal utilisant `Strands Agent SDK` et `OllamaModel`.
-- **`ollama_tui.py`** : Application TUI interactive pour lister et supprimer les modèles Ollama locaux.
+- **`ollama_tui.py`** : Application TUI interactive pour lister, sélectionner et supprimer les modèles Ollama locaux.
 - **`manage_models.sh`** : Raccourci bash pour lancer rapidement l'application TUI.
 - **`setup_wsl.sh`** : Script d'installation et de démarrage automatisé sous WSL.
 - **`stop_ollama.sh`** : Script pour arrêter proprement Ollama et libérer la VRAM / mémoire.
@@ -37,8 +38,32 @@ Le script s'occupe de :
 3. Installer `ollama` si ce n'est pas déjà fait.
 4. Créer un environnement virtuel Python (`.venv`) et installer `strands-agents[ollama]`.
 5. Démarrer `ollama serve` et attendre qu'il soit opérationnel sur le port `11434`.
-6. Télécharger le modèle `llama3.1` (`ollama pull llama3.1`).
+6. Télécharger le modèle configuré dans `config.properties` (ex: `llama3.1`).
 7. Exécuter `agent_ollama.py` et afficher la réponse de l'agent.
+
+---
+
+## Configuration du modèle (`config.properties`)
+
+Vous pouvez changer le modèle utilisé sans toucher au code Python en éditant `config.properties` :
+
+```properties
+# Nom du modèle Ollama à utiliser
+model_id=llama3.1
+
+# URL de l'hôte Ollama
+host=http://localhost:11434
+```
+
+*Modèles recommandés selon votre configuration GPU (ex: 4GB VRAM) :*
+- `llama3.2:1b` (~1.3 Go)
+- `llama3.2:3b` (~2.0 Go)
+- `phi3:mini` (~2.3 Go)
+- `qwen2.5:1.5b` (~1.0 Go)
+- `qwen2.5:3b` (~2.0 Go)
+- `llama3.1` (8B, ~4.7 Go)
+
+Vous pouvez également choisir le modèle actif directement dans l'interface TUI (`./manage_models.sh`) avec la touche **`[Entrée]`** ou **`[s]`**.
 
 ---
 

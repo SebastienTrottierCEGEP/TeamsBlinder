@@ -170,9 +170,18 @@ else
     fi
 fi
 
-# Téléchargement du modèle llama3.1
-echo "Téléchargement du modèle llama3.1 (si non présent)..."
-ollama pull llama3.1
+# Lecture du modèle depuis config.properties s'il existe
+TARGET_MODEL="llama3.1"
+if [ -f "config.properties" ]; then
+    CONF_MODEL=$(grep -E '^[[:space:]]*model_id[[:space:]]*=' config.properties | cut -d'=' -f2 | xargs || true)
+    if [ -n "$CONF_MODEL" ]; then
+        TARGET_MODEL="$CONF_MODEL"
+    fi
+fi
+
+# Téléchargement du modèle sélectionné
+echo "Téléchargement du modèle '$TARGET_MODEL' (si non présent)..."
+ollama pull "$TARGET_MODEL"
 
 # 6. Exécution du programme Python
 echo ""

@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
 Ollama Model Manager TUI
-Application terminal interactive pour visualiser et supprimer les modèles Ollama locaux.
+Application terminal interactive pour visualiser, sélectionner et supprimer les modèles Ollama locaux.
 """
 
 import curses
 import json
 import math
+import os
 import subprocess
 import sys
 import urllib.error
@@ -14,6 +15,45 @@ import urllib.request
 from datetime import datetime
 
 OLLAMA_HOST = "http://localhost:11434"
+CONFIG_FILE = "config.properties"
+
+
+def get_active_model_from_props(filepath=CONFIG_FILE):
+    """Lit le nom du modèle configuré dans config.properties."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    target_path = os.path.join(script_dir, filepath) if not os.path.isabs(filepath) else filepath
+    if os.path.exists(target_path):
+        with open(target_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    if k.strip() == "model_id":
+                        return v.strip()
+    return "llama3.1"
+
+
+def set_active_model_in_props(model_name, filepath=CONFIG_FILE):
+    """Enregistre le modèle sélectionné dans config.properties."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    target_path = os.path.join(script_dir, filepath) if not os.path.isabs(filepath) else filepath
+    lines = []
+    found = False
+    if os.path.exists(target_path):
+        with open(target_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if stripped and not stripped.startswith("#") and "=" in line:
+                k, _ = line.split("=", 1)
+                if k.strip() == "model_id":
+                    lines[i] = f"model_id={model_name}\n"
+                    found = True
+                    break
+    if not found:
+        lines.append(f"model_id={model_name}\n")
+    with open(target_path, "w", encoding="utf-8") as f:
+        f.writelines(lines)
 
 
 def format_size(bytes_val):
@@ -112,19 +152,22 @@ def delete_model(model_name, host=OLLAMA_HOST):
 
 
 def draw_confirm_dialog(stdscr, model_name, model_size):
-    """Affiche une boîte de dialogue modale pour confirmer la suppression."""
+    """Affiche une boîte de dialogue modale pour confirmer la suppression avec choix par flèches ou touches directes."""
     h, w = stdscr.getmaxyx()
-    box_h = 10
-    box_w = min(64, w - 4)
+    box_h = 11
+    box_w = min(66, w - 4)
     start_y = max(0, (h - box_h) // 2)
     start_x = max(0, (w - box_w) // 2)
 
     win = curses.newwin(box_h, box_w, start_y, start_x)
     win.keypad(True)
 
-    # Couleurs
-    curses.init_pair(10, curses.COLOR_WHITE, curses.COLOR_RED)
-    curses.init_pair(11, curses.COLOR_BLACK, curses.COLOR_WHITE)
+    curses.init_pair(10, curses.COLOR_WHITE, curses.COLOR_RED)     # Bouton Oui sélectionné / Alerte
+    curses.init_pair(11, curses.COLOR_BLACK, curses.COLOR_CYAN)    # Bouton Non sélectionné
+    curses.init_pair(12, curses.COLOR_RED, -1)                     # Bouton Oui non sélectionné
+
+    # 0 = Oui (supprimer), 1 = Non (annuler)
+    selected_btn = 0
 
     while True:
         win.erase()
@@ -140,40 +183,75 @@ def draw_confirm_dialog(stdscr, model_name, model_size):
             name_str = name_str[:box_w - 7] + "..."
         win.addstr(4, max(2, (box_w - len(name_str)) // 2), name_str, curses.A_BOLD)
 
-        size_str = f"Espace disque qui sera libéré : {model_size}"
+        size_str = f"Espace disque libéré : {model_size}"
         win.addstr(5, max(2, (box_w - len(size_str)) // 2), size_str, curses.A_DIM)
 
-        prompt = " [O] Oui, supprimer     [N / Échap] Annuler "
-        win.addstr(7, max(2, (box_w - len(prompt)) // 2), prompt, curses.color_pair(11) | curses.A_BOLD)
+        # Affichage interactif des deux boutons
+        btn_oui = " [ Oui (supprimer) ] "
+        btn_non = " [ Non (annuler) ] "
+        spacing = 4
+        total_btn_len = len(btn_oui) + spacing + len(btn_non)
+        btn_start_x = max(2, (box_w - total_btn_len) // 2)
+
+        oui_attr = (curses.color_pair(10) | curses.A_BOLD) if (selected_btn == 0) else (curses.color_pair(12) | curses.A_NORMAL)
+        non_attr = (curses.color_pair(11) | curses.A_BOLD) if (selected_btn == 1) else curses.A_NORMAL
+
+        win.addstr(7, btn_start_x, btn_oui, oui_attr)
+        win.addstr(7, btn_start_x + len(btn_oui) + spacing, btn_non, non_attr)
+
+        hint = "Naviguez avec [← / →] puis [Entrée], ou tapez 'o' / 'n'"
+        win.addstr(9, max(2, (box_w - len(hint)) // 2), hint, curses.A_DIM)
 
         win.refresh()
         key = win.getch()
 
-        if key in (ord("o"), ord("O"), ord("y"), ord("Y"), 10, 13):
+        # Confirmation directe par 'o', 'O', 'y', 'Y'
+        if key in (ord("o"), ord("O"), ord("y"), ord("Y")):
             return True
-        elif key in (ord("n"), ord("N"), 27, ord("q"), ord("Q")):
+        # Annulation directe par 'n', 'N', 'q', 'Q', Échap
+        elif key in (ord("n"), ord("N"), ord("q"), ord("Q"), 27):
             return False
+        # Navigation entre Oui et Non par flèches ou Tab
+        elif key in (curses.KEY_LEFT, curses.KEY_RIGHT, curses.KEY_UP, curses.KEY_DOWN, ord("\t"), ord("h"), ord("l")):
+            selected_btn = 1 - selected_btn
+        # Validation par touche Entrée
+        elif key in (10, 13, curses.KEY_ENTER):
+            return (selected_btn == 0)
+
+
+def is_active_model(model_name, active_name):
+    """Vérifie si le modèle correspond au modèle configuré (avec ou sans :latest)."""
+    if not active_name:
+        return False
+    if model_name == active_name:
+        return True
+    if model_name.split(":")[0] == active_name:
+        return True
+    if active_name.split(":")[0] == model_name:
+        return True
+    return False
 
 
 def main_tui(stdscr):
-    # Configuration curses
     curses.curs_set(0)
     stdscr.keypad(True)
     curses.use_default_colors()
 
     # Paires de couleurs
     curses.init_pair(1, curses.COLOR_CYAN, -1)     # Titre
-    curses.init_pair(2, curses.COLOR_GREEN, -1)    # Statut en ligne
+    curses.init_pair(2, curses.COLOR_GREEN, -1)    # Succès / en ligne
     curses.init_pair(3, curses.COLOR_RED, -1)      # Erreur / hors ligne
     curses.init_pair(4, curses.COLOR_YELLOW, -1)   # Attention
     curses.init_pair(5, curses.COLOR_BLACK, curses.COLOR_CYAN)  # Sélection curseur
     curses.init_pair(6, curses.COLOR_WHITE, curses.COLOR_BLUE)  # En-tête de tableau
+    curses.init_pair(7, curses.COLOR_GREEN, -1)    # Modèle actif
 
     selected_idx = 0
     message = ""
-    message_type = "info"  # "info", "success", "error"
+    message_type = "info"
 
     models, status, err = get_models()
+    active_model = get_active_model_from_props()
 
     while True:
         stdscr.erase()
@@ -193,10 +271,10 @@ def main_tui(stdscr):
 
         # Statut du serveur
         if status == "online":
-            status_text = "● Serveur actif (http://localhost:11434)"
+            status_text = "● Serveur actif"
             stdscr.addstr(1, max(35, w - len(status_text) - 4), status_text, curses.color_pair(2) | curses.A_BOLD)
         elif status == "cli_fallback":
-            status_text = "● Mode CLI (API non joignable)"
+            status_text = "● Mode CLI (API hors ligne)"
             stdscr.addstr(1, max(35, w - len(status_text) - 4), status_text, curses.color_pair(4) | curses.A_BOLD)
         else:
             status_text = "● Serveur hors ligne"
@@ -204,28 +282,28 @@ def main_tui(stdscr):
 
         stdscr.addstr(2, 2, "─" * (w - 4), curses.A_DIM)
 
-        # 2. Statistiques et compteur
+        # 2. Statistiques et modèle configuré
         nb_models = len(models)
-        count_str = f"Modèles installés : {nb_models}"
-        stdscr.addstr(3, 2, count_str, curses.A_BOLD)
+        info_str = f"Modèles : {nb_models} | Actif pour l'agent (config.properties) : [{active_model}]"
+        stdscr.addstr(3, 2, info_str[:w - 4], curses.A_BOLD)
 
         # Message temporaire s'il existe
         if message:
             msg_color = curses.color_pair(2) if message_type == "success" else curses.color_pair(3)
-            # Tronquer le message si trop long
-            max_msg_len = w - len(count_str) - 8
-            display_msg = message[:max_msg_len]
-            stdscr.addstr(3, len(count_str) + 6, display_msg, msg_color | curses.A_BOLD)
+            max_msg_len = w - 4
+            stdscr.addstr(4, 2, message[:max_msg_len], msg_color | curses.A_BOLD)
+        else:
+            stdscr.addstr(4, 2, "Astuce : Appuyez sur [Entrée] ou [s] pour choisir le modèle actif de l'agent.", curses.A_DIM)
 
         # 3. En-têtes du tableau
-        header_y = 5
-        col_name_w = max(24, w - 48)
-        table_header = f" {'#':<3} {'NOM DU MODÈLE':<{col_name_w}} {'TAILLE':<10} {'PARAMS':<8} {'QUANT':<7} "
+        header_y = 6
+        col_name_w = max(24, w - 50)
+        table_header = f" {'#':<3} {'NOM DU MODÈLE':<{col_name_w}} {'TAILLE':<10} {'PARAMS':<8} {'STATUT':<8} "
         table_header_padded = table_header.ljust(w - 4)
         stdscr.addstr(header_y, 2, table_header_padded[:w - 4], curses.color_pair(6) | curses.A_BOLD)
 
         # 4. Liste des modèles
-        list_y_start = 6
+        list_y_start = 7
         visible_rows = h - list_y_start - 3
 
         if not models:
@@ -234,9 +312,8 @@ def main_tui(stdscr):
                 stdscr.addstr(list_y_start + 3, 4, "Vérifiez que le serveur est démarré avec './setup_wsl.sh'.", curses.A_DIM)
             else:
                 stdscr.addstr(list_y_start + 2, 4, "Aucun modèle local trouvé.", curses.color_pair(4))
-                stdscr.addstr(list_y_start + 3, 4, "Téléchargez un modèle avec 'ollama pull llama3.1'.", curses.A_DIM)
+                stdscr.addstr(list_y_start + 3, 4, f"Téléchargez un modèle avec 'ollama pull {active_model}'.", curses.A_DIM)
         else:
-            # Gestion du défilement
             if selected_idx >= nb_models:
                 selected_idx = max(0, nb_models - 1)
 
@@ -250,12 +327,16 @@ def main_tui(stdscr):
                 m = models[model_idx]
                 curr_y = list_y_start + i
                 is_selected = (model_idx == selected_idx)
+                is_active = is_active_model(m["name"], active_model)
 
-                row_str = f" {model_idx + 1:<3} {m['name']:<{col_name_w}} {m['size']:<10} {m['params']:<8} {m['quant']:<7} "
+                status_label = "★ ACTIF" if is_active else ""
+                row_str = f" {model_idx + 1:<3} {m['name']:<{col_name_w}} {m['size']:<10} {m['params']:<8} {status_label:<8} "
                 row_str_padded = row_str.ljust(w - 4)
 
                 if is_selected:
                     stdscr.addstr(curr_y, 2, row_str_padded[:w - 4], curses.color_pair(5) | curses.A_BOLD)
+                elif is_active:
+                    stdscr.addstr(curr_y, 2, row_str_padded[:w - 4], curses.color_pair(7) | curses.A_BOLD)
                 else:
                     attr = curses.A_NORMAL if (i % 2 == 0) else curses.A_DIM
                     stdscr.addstr(curr_y, 2, row_str_padded[:w - 4], attr)
@@ -263,12 +344,11 @@ def main_tui(stdscr):
         # 5. Barre de navigation et raccourcis en bas
         footer_y = h - 2
         stdscr.addstr(footer_y - 1, 2, "─" * (w - 4), curses.A_DIM)
-        shortcuts = " [↑/↓ ou j/k] Naviguer   [d / Suppr] Effacer   [r] Rafraîchir   [q / Échap] Quitter"
+        shortcuts = " [↑/↓] Naviguer  [Entrée/s] Choisir pour l'agent  [d] Supprimer  [r] Actualiser  [q] Quitter"
         stdscr.addstr(footer_y, 2, shortcuts[:w - 4], curses.color_pair(1))
 
         stdscr.refresh()
 
-        # Lecture de la touche utilisateur
         key = stdscr.getch()
 
         if key in (ord("q"), ord("Q"), 27):
@@ -279,10 +359,19 @@ def main_tui(stdscr):
         elif key in (curses.KEY_DOWN, ord("j"), ord("J")):
             if nb_models > 0:
                 selected_idx = (selected_idx + 1) % nb_models
+        elif key in (ord("s"), ord("S"), 10, 13):
+            # Sélectionner le modèle pour config.properties
+            if nb_models > 0 and selected_idx < nb_models:
+                chosen_name = models[selected_idx]["name"]
+                set_active_model_in_props(chosen_name)
+                active_model = chosen_name
+                message = f"✔ Modèle '{chosen_name}' défini comme modèle actif dans config.properties !"
+                message_type = "success"
         elif key in (ord("r"), ord("R")):
             message = "Actualisation..."
             message_type = "info"
             models, status, err = get_models()
+            active_model = get_active_model_from_props()
             message = "Liste actualisée."
             message_type = "success"
         elif key in (ord("d"), ord("D"), curses.KEY_DC, ord("\x7f")):
@@ -295,6 +384,7 @@ def main_tui(stdscr):
                         message = f"✔ {target_model['name']} supprimé."
                         message_type = "success"
                         models, status, err = get_models()
+                        active_model = get_active_model_from_props()
                         if selected_idx >= len(models):
                             selected_idx = max(0, len(models) - 1)
                     else:

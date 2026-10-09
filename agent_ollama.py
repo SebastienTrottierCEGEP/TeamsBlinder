@@ -1,8 +1,29 @@
+import os
 import sys
 import time
 from typing import Any
 from strands import Agent
 from strands.models.ollama import OllamaModel
+
+
+def load_properties(filepath: str = "config.properties") -> dict:
+    """Charge les propriétés depuis un fichier clé=valeur (ex: config.properties)."""
+    props = {
+        "model_id": "llama3.1",
+        "host": "http://localhost:11434",
+    }
+    # Recherche dans le dossier du script si chemin relatif
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    target_path = os.path.join(script_dir, filepath) if not os.path.isabs(filepath) else filepath
+
+    if os.path.exists(target_path):
+        with open(target_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, val = line.split("=", 1)
+                    props[key.strip()] = val.strip()
+    return props
 
 
 class ConsoleProgressHandler:
@@ -38,9 +59,15 @@ class ConsoleProgressHandler:
 
 
 def main():
+    # Chargement de la configuration depuis config.properties
+    props = load_properties("config.properties")
+    model_id = props.get("model_id", "llama3.1")
+    host = props.get("host", "http://localhost:11434")
+
+    print(f"[Configuration] Modèle sélectionné : '{model_id}' (Hôte : {host})")
+
     # Configuration du modèle local Ollama
-    # STROTTIER llama3.1 lourd pour 4GB VRAM
-    model = OllamaModel(host="http://localhost:11434", model_id="llama3.1")
+    model = OllamaModel(host=host, model_id=model_id)
 
     # Gestionnaire de progression en direct
     progress_handler = ConsoleProgressHandler()
