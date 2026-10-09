@@ -7,7 +7,11 @@ Ce projet configure et exécute un agent basé sur **Strands Agent SDK** utilisa
 ## Structure des fichiers
 
 - **`agent_ollama.py`** : Programme Python minimal utilisant `Strands Agent SDK` et `OllamaModel`.
+- **`ollama_tui.py`** : Application TUI interactive pour lister et supprimer les modèles Ollama locaux.
+- **`manage_models.sh`** : Raccourci bash pour lancer rapidement l'application TUI.
 - **`setup_wsl.sh`** : Script d'installation et de démarrage automatisé sous WSL.
+- **`stop_ollama.sh`** : Script pour arrêter proprement Ollama et libérer la VRAM / mémoire.
+- **`enable_cuda_wsl.sh`** : Script dédié d'activation et diagnostic du GPU NVIDIA CUDA sous WSL2.
 - **`requirements.txt`** : Dépendances Python (`strands-agents[ollama]`).
 
 ---
@@ -49,3 +53,34 @@ source .venv/bin/activate
 # Lancer l'agent
 python agent_ollama.py
 ```
+
+---
+
+## Arrêter Ollama (libérer GPU et mémoire)
+
+Pour stopper le serveur Ollama lorsqu'il n'est plus utilisé :
+
+```bash
+chmod +x stop_ollama.sh
+./stop_ollama.sh
+```
+
+---
+
+## Gestionnaire de modèles (Interface TUI)
+
+Pour afficher tous les modèles locaux téléchargés et en supprimer facilement :
+
+```bash
+chmod +x manage_models.sh
+./manage_models.sh
+# ou directement : python3 ollama_tui.py
+```
+
+**Raccourcis clavier :**
+- `↑` / `↓` ou `k` / `j` : Naviguer dans la liste
+- `d` ou `Suppr` : Supprimer le modèle sélectionné (avec confirmation)
+- `r` : Rafraîchir la liste
+- `q` ou `Échap` : Quitter
+
+

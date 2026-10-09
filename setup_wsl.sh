@@ -6,22 +6,89 @@ echo "  Configuration de l'environnement WSL    "
 echo "  Strands Agent SDK + Ollama (llama3.1)  "
 echo "=========================================="
 
-# 1. Vérification du GPU / NVIDIA CUDA
+# 1. Vérification et configuration du support GPU NVIDIA (CUDA pour WSL2)
 echo ""
-echo "[1/6] Vérification du support GPU NVIDIA (CUDA)..."
+echo "[1/6] Vérification et configuration du support GPU NVIDIA (CUDA)..."
+
+# Dans WSL2, Windows monte les bibliothèques CUDA dans /usr/lib/wsl/lib
+if [ -d "/usr/lib/wsl/lib" ]; then
+    export PATH="$PATH:/usr/lib/wsl/lib"
+
+    # Vérification et lien pour libcuda.so
+    if [ -f "/usr/lib/wsl/lib/libcuda.so.1" ] && [ ! -e "/usr/lib/wsl/lib/libcuda.so" ]; then
+        sudo ln -sf /usr/lib/wsl/lib/libcuda.so.1 /usr/lib/wsl/lib/libcuda.so 2>/dev/null || true
+    fi
+
+    # Création de la commande nvidia-smi si absente
+    if ! command -v nvidia-smi &> /dev/null; then
+        if [ -f "/usr/lib/wsl/lib/nvidia-smi" ]; then
+            sudo ln -sf /usr/lib/wsl/lib/nvidia-smi /usr/local/bin/nvidia-smi
+        elif command -v nvidia-smi.exe &> /dev/null; then
+            sudo tee /usr/local/bin/nvidia-smi > /dev/null << 'EOF'
+#!/bin/sh
+exec nvidia-smi.exe "$@"
+EOF
+            sudo chmod +x /usr/local/bin/nvidia-smi
+        elif [ -f "/mnt/c/Windows/System32/nvidia-smi.exe" ]; then
+            sudo tee /usr/local/bin/nvidia-smi > /dev/null << 'EOF'
+#!/bin/sh
+exec /mnt/c/Windows/System32/nvidia-smi.exe "$@"
+EOF
+            sudo chmod +x /usr/local/bin/nvidia-smi
+        fi
+    fi
+
+    # Enregistrement des librairies CUDA pour le chargeur dynamique (ldconfig)
+    if [ ! -f "/etc/ld.so.conf.d/ld.wsl.conf" ] || ! grep -q "/usr/lib/wsl/lib" /etc/ld.so.conf.d/ld.wsl.conf 2>/dev/null; then
+        echo "/usr/lib/wsl/lib" | sudo tee /etc/ld.so.conf.d/ld.wsl.conf > /dev/null
+        sudo ldconfig
+    fi
+fi
+
+# Détermination de la commande nvidia-smi à utiliser
+GPU_CMD=""
 if command -v nvidia-smi &> /dev/null; then
-    echo "✔ GPU NVIDIA détecté avec succès :"
-    nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>/dev/null || nvidia-smi
+    GPU_CMD="nvidia-smi"
+elif command -v nvidia-smi.exe &> /dev/null; then
+    GPU_CMD="nvidia-smi.exe"
+elif [ -f "/mnt/c/Windows/System32/nvidia-smi.exe" ]; then
+    GPU_CMD="/mnt/c/Windows/System32/nvidia-smi.exe"
+fi
+
+if [ -n "$GPU_CMD" ]; then
+    echo "✔ GPU NVIDIA détecté avec succès via WSL2 :"
+    GPU_INFO=$($GPU_CMD --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null || true)
+    if [ -n "$GPU_INFO" ]; then
+        while IFS=',' read -r GPU_NAME GPU_VRAM; do
+            GPU_NAME_CLEAN="$(echo "${GPU_NAME:-}" | xargs)"
+            GPU_VRAM_CLEAN="$(echo "${GPU_VRAM:-}" | xargs)"
+            echo "   • Carte vidéo : $GPU_NAME_CLEAN"
+            echo "   • VRAM totale : $GPU_VRAM_CLEAN"
+        done <<< "$GPU_INFO"
+    else
+        $GPU_CMD
+    fi
+elif [ -f "/usr/lib/wsl/lib/libcuda.so.1" ]; then
+    echo "✔ Bibliothèque CUDA (/usr/lib/wsl/lib/libcuda.so.1) détectée !"
+    echo "  Ollama pourra utiliser l'accélération GPU CUDA."
 else
     echo "⚠ Commande 'nvidia-smi' non détectée."
-    echo "  Ollama utilisera le CPU sauf si le support CUDA WSL2 est activé ultérieurement."
+    if [ ! -e "/dev/dxg" ]; then
+        echo "  Notice : Le pont DirectX / GPU (/dev/dxg) n'est pas présent dans WSL2."
+        echo "  Pour l'activer, exécutez sous Windows (PowerShell en admin) :"
+        echo "    wsl --update"
+        echo "    wsl --shutdown"
+        echo "  et vérifiez que vos pilotes NVIDIA GeForce / Studio sont installés sous Windows."
+    else
+        echo "  Ollama utilisera le CPU sauf si le support CUDA WSL2 est activé."
+    fi
 fi
 
 # 2. Vérification des prérequis système
 echo ""
-echo "[2/6] Vérification des outils système (curl, python3, venv)..."
+echo "[2/6] Vérification des outils système (curl, zstd, tar, python3, venv)..."
 MISSING_PKGS=()
-for pkg in curl python3; do
+for pkg in curl zstd tar python3; do
     if ! command -v "$pkg" &> /dev/null; then
         MISSING_PKGS+=("$pkg")
     fi
