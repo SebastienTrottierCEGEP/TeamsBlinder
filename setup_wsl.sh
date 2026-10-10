@@ -8,7 +8,7 @@ echo "=========================================="
 
 # 1. Vérification et configuration du support GPU NVIDIA (CUDA pour WSL2)
 echo ""
-echo "[1/6] Vérification et configuration du support GPU NVIDIA (CUDA)..."
+echo "[1/5] Vérification et configuration du support GPU NVIDIA (CUDA)..."
 
 # Dans WSL2, Windows monte les bibliothèques CUDA dans /usr/lib/wsl/lib
 if [ -d "/usr/lib/wsl/lib" ]; then
@@ -86,7 +86,7 @@ fi
 
 # 2. Vérification des prérequis système
 echo ""
-echo "[2/6] Vérification des outils système (curl, zstd, tar, python3, venv)..."
+echo "[2/5] Vérification des outils système (curl, zstd, tar, python3, venv)..."
 MISSING_PKGS=()
 for pkg in curl zstd tar python3; do
     if ! command -v "$pkg" &> /dev/null; then
@@ -107,7 +107,7 @@ fi
 
 # 3. Vérification / Installation de Ollama
 echo ""
-echo "[3/6] Vérification d'Ollama..."
+echo "[3/5] Vérification d'Ollama..."
 if ! command -v ollama &> /dev/null; then
     echo "Installation d'Ollama via le script officiel..."
     curl -fsSL https://ollama.com/install.sh | sh
@@ -117,7 +117,7 @@ fi
 
 # 4. Préparation de l'environnement virtuel Python
 echo ""
-echo "[4/6] Mise en place de l'environnement virtuel Python (.venv)..."
+echo "[4/5] Mise en place de l'environnement virtuel Python (.venv)..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
@@ -134,7 +134,7 @@ echo "✔ Dépendances Python installées avec succès."
 
 # 5. Démarrage du serveur Ollama et attente
 echo ""
-echo "[5/6] Vérification et démarrage du service Ollama..."
+echo "[5/5] Vérification et démarrage du service Ollama..."
 is_ollama_running() {
     curl -s -f "http://localhost:11434" &> /dev/null
 }
@@ -183,11 +183,12 @@ fi
 echo "Téléchargement du modèle '$TARGET_MODEL' (si non présent)..."
 ollama pull "$TARGET_MODEL"
 
-# 6. Exécution du programme Python
 echo ""
-echo "[6/6] Exécution de agent_ollama.py..."
-echo "------------------------------------------"
-python agent_ollama.py
-echo "------------------------------------------"
+echo "=========================================="
+echo "✔ Configuration terminée avec succès !"
+echo "=========================================="
+echo "Commandes disponibles :"
+echo "  - Anonymiser les examens : ./run_anonymizer.sh"
+echo "  - Gérer les modèles      : ./manage_models.sh"
+echo "  - Arrêter Ollama         : ./stop_ollama.sh"
 echo ""
-echo "✔ Exécution terminée avec succès !"
