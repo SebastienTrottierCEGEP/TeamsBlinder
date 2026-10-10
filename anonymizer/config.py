@@ -15,6 +15,9 @@ def load_config(filepath: str = "config.properties") -> Dict[str, Any]:
     props = {
         "model_id": "llama3.2:3b",
         "host": "http://localhost:11434",
+        "agent_max_turns": "30",
+        "agent_max_tool_calls": "60",
+        "agent_max_repeated_calls": "3",
         "submissions_base_path": "./SampleDir",
         "exam_name": "Objets Connectés 1 - Examen 1",
         "anonymized_base_path": "./SampleDir_Anonymise",

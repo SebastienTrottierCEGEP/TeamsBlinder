@@ -3,9 +3,11 @@
 # ==============================================================================
 
 config.properties
+mapping_central.csv
 SampleDir/
 SampleDir_Anonymise/
-mapping_central.csv
+OC1_Ex1/
+OC1_Ex1_Anonymise/
 
 # ------------------------------------------------------------------------------
 # 1. Environnements virtuels Python

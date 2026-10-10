@@ -7,7 +7,9 @@ import shutil
 import tempfile
 import unittest
 import zipfile
+from unittest.mock import patch
 
+from anonymizer.agent_harness import AgentLoopGuard, AgentLoopLimitError, AnonymizationAgentHarness
 from anonymizer.identity import extract_student_identity, MappingTracker
 from anonymizer.file_operations import (
     find_latest_version_dir,
@@ -16,6 +18,69 @@ from anonymizer.file_operations import (
     generate_name_patterns,
     prepare_student_submission,
 )
+
+
+AGENT_CONFIG = {
+    "model_id": "configured-model",
+    "agent_max_turns": "7",
+    "agent_max_tool_calls": "11",
+    "agent_max_repeated_calls": "2",
+}
+
+
+class TestAnonymizationAgentHarness(unittest.TestCase):
+    @patch("anonymizer.agent_harness.load_config", return_value=AGENT_CONFIG)
+    def test_model_id_defaults_to_configured_value(self, load_config):
+        harness = AnonymizationAgentHarness()
+
+        self.assertEqual(harness.model_id, "configured-model")
+        load_config.assert_called_once_with()
+
+    @patch("anonymizer.agent_harness.load_config", return_value=AGENT_CONFIG)
+    def test_explicit_model_id_overrides_config(self, load_config):
+        harness = AnonymizationAgentHarness(model_id="override-model")
+
+        self.assertEqual(harness.model_id, "override-model")
+
+    @patch("anonymizer.agent_harness.load_config", return_value=AGENT_CONFIG)
+    def test_loop_limits_come_from_config(self, load_config):
+        harness = AnonymizationAgentHarness()
+
+        self.assertEqual(
+            (harness.max_turns, harness.max_tool_calls, harness.max_repeated_calls), (7, 11, 2)
+        )
+
+
+class TestAgentLoopGuard(unittest.TestCase):
+    def test_repeated_identical_calls_trip_guard(self):
+        guard = AgentLoopGuard(max_repeated_calls=2)
+        self.assertIsNone(guard.record_tool_call("list_files", "."))
+        self.assertIsNone(guard.record_tool_call("list_files", "."))
+        self.assertIsNotNone(guard.record_tool_call("list_files", "."))
+        with self.assertRaises(AgentLoopLimitError):
+            guard.check()
+
+    def test_distinct_calls_do_not_trip_repeat_limit(self):
+        guard = AgentLoopGuard(max_repeated_calls=1)
+        self.assertIsNone(guard.record_tool_call("read_file_content", "a.txt"))
+        self.assertIsNone(guard.record_tool_call("read_file_content", "b.txt"))
+        guard.check()
+
+    def test_total_tool_calls_limit(self):
+        guard = AgentLoopGuard(max_tool_calls=2)
+        guard.record_tool_call("rename_file", "a", "b")
+        guard.record_tool_call("rename_file", "c", "d")
+        self.assertIsNotNone(guard.record_tool_call("rename_file", "e", "f"))
+        with self.assertRaises(AgentLoopLimitError):
+            guard.check()
+
+    def test_turn_limit(self):
+        guard = AgentLoopGuard(max_turns=1)
+        guard.record_turn()
+        guard.check()
+        guard.record_turn()
+        with self.assertRaises(AgentLoopLimitError):
+            guard.check()
 
 
 class TestIdentityExtraction(unittest.TestCase):
