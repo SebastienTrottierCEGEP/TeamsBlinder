@@ -1,111 +1,100 @@
-# Strands Agent SDK avec Ollama (WSL2 / GPU CUDA)
+# TeamsBlinder - Anonymisation d'Examens Étudiants avec Strands Agent SDK & Ollama
 
-Ce projet configure et exécute un agent basé sur **Strands Agent SDK** utilisant un modèle local **Ollama** (`llama3.1`) avec accélération GPU NVIDIA sous WSL.
-
----
-
-## Structure des fichiers
-
-- **`config.properties`** : Fichier de propriétés pour configurer le nom du modèle (`model_id`) et l'hôte (`host`).
-- **`agent_ollama.py`** : Programme Python minimal utilisant `Strands Agent SDK` et `OllamaModel`.
-- **`ollama_tui.py`** : Application TUI interactive pour lister, sélectionner et supprimer les modèles Ollama locaux.
-- **`manage_models.sh`** : Raccourci bash pour lancer rapidement l'application TUI.
-- **`setup_wsl.sh`** : Script d'installation et de démarrage automatisé sous WSL.
-- **`stop_ollama.sh`** : Script pour arrêter proprement Ollama et libérer la VRAM / mémoire.
-- **`enable_cuda_wsl.sh`** : Script dédié d'activation et diagnostic du GPU NVIDIA CUDA sous WSL2.
-- **`requirements.txt`** : Dépendances Python (`strands-agents[ollama]`).
+**TeamsBlinder** est un outil complet d'anonymisation pour les examens et devoirs étudiants soumis via Microsoft Teams (ou plateformes similaires).
+Il s'appuie sur une approche hybride robuste combinant des règles déterministes et un **Agent Harness** propulsé par **Strands Agent SDK** et un modèle local **Ollama** (ex: `llama3.2:3b` ou `llama3.1`).
 
 ---
 
-## Instructions d'exécution sous WSL
+## 🎯 Fonctionnalités principales
 
-### 1. Ouvrir votre terminal WSL
-Rendez-vous dans le répertoire du projet :
-```bash
-cd /mnt/z/home/strottier/repos/TeamsBlinder
-# ou le chemin correspondant dans votre distribution WSL
-```
-
-### 2. Rendre le script exécutable et le lancer
-```bash
-chmod +x setup_wsl.sh
-./setup_wsl.sh
-```
-
-Le script s'occupe de :
-1. Détecter votre carte graphique NVIDIA et le support CUDA via `nvidia-smi`.
-2. Installer les paquets système nécessaires (`curl`, `python3-venv`).
-3. Installer `ollama` si ce n'est pas déjà fait.
-4. Créer un environnement virtuel Python (`.venv`) et installer `strands-agents[ollama]`.
-5. Démarrer `ollama serve` et attendre qu'il soit opérationnel sur le port `11434`.
-6. Télécharger le modèle configuré dans `config.properties` (ex: `llama3.1`).
-7. Exécuter `agent_ollama.py` et afficher la réponse de l'agent.
+1. **Extraction automatique d'identité** : Détecte le nom complet et le **DA** (7 chiffres) à partir de formats courants de répertoires Teams (ex: `Gaetan Simard (2244612)`).
+2. **Attribution de pseudonymes séquentiels** : Génère des alias uniques (`etudiant01`, `etudiant02`, ...) pour chaque étudiant.
+3. **Fichier central de traçabilité** : Consigne dans `mapping_central.csv` la correspondance sécurisée entre le nom d'origine, le DA, le pseudonyme attribué, les dossiers et la date.
+4. **Filtrage intelligent des versions** : Identifie les dossiers ou remises `Version 1`, `Version 2`, etc., retient automatiquement **la version la plus récente** (`Version N` max) et élimine les versions antérieures.
+5. **Décompression des archives** : Extrait récursivement les fichiers `.zip` et supprime l'archive originale afin de ne laisser aucun contenu non anonymisé.
+6. **Agent Harness (Strands + Ollama)** :
+   - Analyse les fichiers et dossiers pour repérer les noms d'étudiants, variations compactées, inversions (NomPrenom / PrenomNom) et fautes de frappe.
+   - Renomme les fichiers/dossiers (ex: `submission._GateanSimard.txt` -> `submission._etudiant01.txt`).
+   - Remplace dans les contenus textuels et code source le nom par le pseudonyme et tout DA (7 chiffres) par `XXXXXXX`.
 
 ---
 
-## Configuration du modèle (`config.properties`)
+## 📁 Structure du projet
 
-Vous pouvez changer le modèle utilisé sans toucher au code Python en éditant `config.properties` :
+- **`anonymize_exams.py`** : Point d'entrée principal pour lancer l'anonymisation.
+- **`run_anonymizer.sh`** : Script bash pour lancer l'anonymisation dans WSL.
+- **`anonymizer/`** :
+  - `config.py` : Chargement et validation de `config.properties`.
+  - `identity.py` : Extraction de nom/DA et gestion du fichier central `mapping_central.csv`.
+  - `file_operations.py` : Gestion des versions, copie, décompression `.zip`, renommage et remplacement textuel.
+  - `agent_harness.py` : Agent Strands avec outils (`list_files`, `read_file_content`, `rename_file`, `replace_text_in_file`).
+- **`config.properties`** : Fichier central de configuration.
+- **`manage_models.sh`** / **`ollama_tui.py`** : Interface TUI pour visualiser, choisir et supprimer les modèles locaux.
+- **`setup_wsl.sh`** : Installation et configuration d'Ollama et du venv sous WSL.
+- **`stop_ollama.sh`** : Arrêt propre d'Ollama pour libérer la VRAM GPU.
+- **`tests/test_anonymizer.py`** : Suite de tests unitaires.
+
+---
+
+## ⚙️ Configuration (`config.properties`)
 
 ```properties
-# Nom du modèle Ollama à utiliser
-model_id=llama3.1
-
-# URL de l'hôte Ollama
+# ==============================================================================
+# Configuration Strands & Ollama
+# ==============================================================================
+# Modèle adapté pour 4GB VRAM (avec support des outils)
+model_id=llama3.2:3b
 host=http://localhost:11434
-```
 
-*Modèles recommandés selon votre configuration GPU (ex: 4GB VRAM) :*
-- `llama3.2:1b` (~1.3 Go)
-- `llama3.2:3b` (~2.0 Go)
-- `phi3:mini` (~2.3 Go)
-- `qwen2.5:1.5b` (~1.0 Go)
-- `qwen2.5:3b` (~2.0 Go)
-- `llama3.1` (8B, ~4.7 Go)
+# ==============================================================================
+# Configuration Anonymisation d'Examens (TeamsBlinder)
+# ==============================================================================
+# Dossier source contenant les répertoires étudiants
+submissions_base_path=./SampleDir
 
-Vous pouvez également choisir le modèle actif directement dans l'interface TUI (`./manage_models.sh`) avec la touche **`[Entrée]`** ou **`[s]`**.
+# Nom de l'évaluation ou examen ciblé dans le sous-dossier de chaque étudiant
+exam_name=Objets Connectés 1 - Examen 1
 
----
+# Dossier destination recevant les remises anonymisées
+anonymized_base_path=./SampleDir_Anonymise
 
-## Exécutions ultérieures
+# Préfixe pour le nom de remplacement (ex: etudiant -> etudiant01, etudiant02)
+replacement_prefix=etudiant
 
-Une fois l'installation terminée, vous pouvez relancer le script Python directement :
-
-```bash
-# Activer l'environnement virtuel
-source .venv/bin/activate
-
-# Lancer l'agent
-python agent_ollama.py
+# Fichier central de traçabilité (Nom d'origine, DA, Alias)
+mapping_file=./SampleDir_Anonymise/mapping_central.csv
 ```
 
 ---
 
-## Arrêter Ollama (libérer GPU et mémoire)
+## 🚀 Utilisation sous WSL
 
-Pour stopper le serveur Ollama lorsqu'il n'est plus utilisé :
+### 1. Lancer l'anonymisation
 
 ```bash
-chmod +x stop_ollama.sh
+chmod +x run_anonymizer.sh
+./run_anonymizer.sh
+```
+
+*(ou directement avec python dans l'environnement virtuel) :*
+```bash
+python3 anonymize_exams.py
+```
+
+### 2. Lancer les tests unitaires
+
+```bash
+python3 -m unittest tests/test_anonymizer.py
+```
+
+### 3. Gérer les modèles Ollama (TUI)
+
+```bash
+./manage_models.sh
+```
+
+### 4. Arrêter Ollama (libérer la VRAM)
+
+```bash
 ./stop_ollama.sh
 ```
-
----
-
-## Gestionnaire de modèles (Interface TUI)
-
-Pour afficher tous les modèles locaux téléchargés et en supprimer facilement :
-
-```bash
-chmod +x manage_models.sh
-./manage_models.sh
-# ou directement : python3 ollama_tui.py
-```
-
-**Raccourcis clavier :**
-- `↑` / `↓` ou `k` / `j` : Naviguer dans la liste
-- `d` ou `Suppr` : Supprimer le modèle sélectionné (avec confirmation)
-- `r` : Rafraîchir la liste
-- `q` ou `Échap` : Quitter
-
-

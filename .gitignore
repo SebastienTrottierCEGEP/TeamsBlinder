@@ -2,6 +2,10 @@
 # .gitignore complet - Python, Ollama, WSL & Environnements de développement
 # ==============================================================================
 
+SampleDir/
+SampleDir_Anonymise/
+mapping_central.csv
+
 # ------------------------------------------------------------------------------
 # 1. Environnements virtuels Python
 # ------------------------------------------------------------------------------
