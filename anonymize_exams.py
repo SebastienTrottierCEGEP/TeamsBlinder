@@ -24,6 +24,7 @@ from anonymizer.identity import extract_student_identity, MappingTracker
 from anonymizer.file_operations import (
     prepare_student_submission,
     extract_zip_archives,
+    scan_submission_manifest,
     anonymize_filenames_and_contents,
 )
 from anonymizer.agent_harness import AnonymizationAgentHarness
@@ -116,21 +117,27 @@ def main():
         if nb_zips > 0:
             print(f"   [+] {nb_zips} archive(s) .zip extraite(s) et nettoyee(s).")
 
-        # Étape C : Appel de l'Agent Harness (Strands + Ollama)
-        print("   [+] Analyse par l'Agent Strands (recherche de variantes et identifiants)...")
-        agent_harness.process_student_directory(
-            student_dir=dst_student_dir,
+        # Étape C : Scan du manifeste et analyse par l'Agent Strands
+        filenames, snippets = scan_submission_manifest(dst_student_dir, student_name, da)
+        print(f"   [+] Manifeste extrait : {len(filenames)} fichier(s)/dossier(s), {len(snippets)} extrait(s) pertinent(s).")
+        print("   [+] Analyse par l'Agent Strands (recherche de variantes, identifiants et entites)...")
+        agent_aliases = agent_harness.discover_aliases(
             student_name=student_name,
             da=da,
             alias=alias,
+            filenames=filenames,
+            snippets=snippets,
         )
+        if agent_aliases:
+            print(f"       > Alias detectes par l'Agent : {agent_aliases}")
 
-        # Étape D : Passe déterministe garantie (Regex exhaustif nom, variantes et DA 7 chiffres)
+        # Étape D : Passe chirurgicale (permutations combinatoires + decouvertes Agent)
         stats = anonymize_filenames_and_contents(
             student_dir=dst_student_dir,
             student_name=student_name,
             da=da,
             alias=alias,
+            extra_aliases=agent_aliases,
         )
 
         total_renamed += stats["files_renamed"]
