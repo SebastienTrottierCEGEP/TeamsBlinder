@@ -2,6 +2,7 @@
 # .gitignore complet - Python, Ollama, WSL & Environnements de développement
 # ==============================================================================
 
+config.properties
 SampleDir/
 SampleDir_Anonymise/
 mapping_central.csv

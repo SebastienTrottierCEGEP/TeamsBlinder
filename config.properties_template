@@ -1,0 +1,31 @@
+# ==============================================================================
+# Fichier de propriétés - Strands Agent & Ollama
+# ==============================================================================
+
+# Nom du modèle Ollama à utiliser
+# Modèles doivent être entraînés pour le "tool use" (utilisation d'outils) pour fonctionner correctement avec Strands Agent.
+# 4GB VRAM: llama3.2:3b, qwen3.5:2b
+# 8GB VRAM: llama3.1, llama3.2, mistral, phi3, deepseek-r1:8b
+model_id=llama3.2:3b
+
+# URL de l'hôte Ollama (par défaut en local)
+host=http://localhost:11434
+
+# ==============================================================================
+# Configuration Anonymisation d'Examens (TeamsBlinder)
+# ==============================================================================
+# Dossier source contenant les répertoires des étudiants (ex: ./SampleDir)
+submissions_base_path=./SampleDir
+
+# Nom de l'évaluation ou examen ciblé dans le sous-dossier de chaque étudiant
+exam_name=Objets Connectés 1 - Examen 1
+
+# Dossier destination recevant les remises anonymisées
+anonymized_base_path=./SampleDir_Anonymise
+
+# Fichier central de traçabilité et correspondance
+# Doit être à l'extérieur du dossier anonymized_base_path
+mapping_file=./mapping_central.csv
+
+# Préfixe pour le nom de remplacement (ex: etudiant -> etudiant01, etudiant02)
+replacement_prefix=etudiant
