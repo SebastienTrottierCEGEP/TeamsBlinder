@@ -153,14 +153,14 @@ class AnonymizationAgentHarness:
             prompt = (
                 f"Tu es un assistant chargé d'anonymiser rigoureusement une remise d'examen étudiante.\n"
                 f"Identité de l'étudiant à anonymiser :\n"
-                f"- Nom complet : {student_name}\n"
+                f"- Nom complet : {student_name}\n (et toutes ses variantes - certains étudiants ont des noms de famille composés et/ou plusieurs prénoms)\n"
                 f"- DA (numéro d'étudiant) : {da if da else 'Inconnu'}\n"
                 f"- Pseudonyme de remplacement : {alias}\n"
                 f"- Remplacement pour tout DA de 7 chiffres : XXXXXXX\n\n"
                 f"Tâches à accomplir dans le dossier '{student_dir}' :\n"
                 f"1. Utilise 'list_files' pour découvrir tous les fichiers.\n"
-                f"2. Renomme tout fichier ou dossier dont le nom contient le nom de l'étudiant (y compris avec fautes de frappe ou variations comme NomPrenom) pour utiliser '{alias}'.\n"
-                f"3. Lis les fichiers et remplace toute mention du nom de l'étudiant par '{alias}' et tout numéro DA (7 chiffres) par 'XXXXXXX'.\n"
+                f"2. Renomme tout fichier ou dossier dont le nom contient le nom de l'étudiant (y compris avec fautes de frappe, inversions de prénom(s) et nom(s), omission de certains prénoms on noms, utilisation d'initiales) pour utiliser '{alias}'.\n"
+                f"3. Lis les fichiers et remplace toute mention du nom de l'étudiant (y compris avec fautes de frappe, inversions de prénom(s) et nom(s), omission de certains prénoms on noms, utilisation d'initiales) par '{alias}' et tout numéro DA (7 chiffres) par 'XXXXXXX'.\n"
                 f"Confirme dès que l'anonymisation est complète."
             )
 
