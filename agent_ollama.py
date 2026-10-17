@@ -13,7 +13,7 @@ except ImportError:
 def load_properties(filepath: str = "config.properties") -> dict:
     """Charge les propriétés depuis un fichier clé=valeur (ex: config.properties)."""
     props = {
-        "model_id": "llama3.1",
+        "model_id": "llama3.2:3b",
         "host": "http://localhost:11434",
     }
     # Recherche dans le dossier du script si chemin relatif
