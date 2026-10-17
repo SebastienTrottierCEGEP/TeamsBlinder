@@ -2,8 +2,12 @@ import os
 import sys
 import time
 from typing import Any
-from strands import Agent
-from strands.models.ollama import OllamaModel
+try:
+    from strands import Agent
+    from strands.models.ollama import OllamaModel
+    HAS_STRANDS = True
+except ImportError:
+    HAS_STRANDS = False
 
 
 def load_properties(filepath: str = "config.properties") -> dict:
@@ -66,8 +70,26 @@ def main():
 
     print(f"[Configuration] Modèle sélectionné : '{model_id}' (Hôte : {host})")
 
+    # Vérification de l'accessibilité d'Ollama
+    import urllib.request
+    print(f"[*] Vérification de l'accessibilité d'Ollama sur {host}...")
+    try:
+        req = urllib.request.Request(f"{host.rstrip('/')}/api/version", headers={"User-Agent": "AgentOllama"})
+        with urllib.request.urlopen(req, timeout=3.0) as resp:
+            if resp.status == 200:
+                print("✔ Serveur Ollama actif.")
+    except Exception as e:
+        print(f"[!] ERREUR : Le serveur Ollama ne répond pas sur {host} ({e}).")
+        print("[!] Veuillez démarrer Ollama avant de lancer l'agent.")
+        sys.exit(1)
+
     # Configuration du modèle local Ollama
-    model = OllamaModel(host=host, model_id=model_id)
+    if not HAS_STRANDS:
+        print("[!] ERREUR : Le package 'strands-agents' n'est pas installé dans cet environnement.")
+        print("[!] Veuillez activer l'environnement virtuel (.venv) où strands est installé.")
+        sys.exit(1)
+
+    model = OllamaModel(host=host, model_id=model_id, ollama_client_args={"timeout": 30.0})
 
     # Gestionnaire de progression en direct
     progress_handler = ConsoleProgressHandler()

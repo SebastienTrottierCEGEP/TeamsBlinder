@@ -99,6 +99,43 @@ class AnonymizationAgentHarness:
         self.max_repeated_calls = int(cfg.get("agent_max_repeated_calls", 3))
         self.callback_handler = callback_handler
 
+    def check_availability(self, timeout: float = 3.0) -> tuple:
+        """
+        Vérifie si le serveur Ollama est actif et répond rapidement.
+        Retourne (True, 'version X.Y.Z') ou (False, 'message d'erreur').
+        """
+        # 1. Vérification de l'endpoint /api/version
+        try:
+            req = urllib.request.Request(
+                f"{self.host.rstrip('/')}/api/version",
+                headers={"User-Agent": "TeamsBlinderAgent"},
+            )
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                if resp.status == 200:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    version = data.get("version", "actif")
+                    return True, f"version {version}"
+        except Exception as e:
+            # 2. Deuxième tentative sur la racine /
+            try:
+                req_root = urllib.request.Request(
+                    f"{self.host.rstrip('/')}/",
+                    headers={"User-Agent": "TeamsBlinderAgent"},
+                )
+                with urllib.request.urlopen(req_root, timeout=timeout) as resp:
+                    if resp.status == 200:
+                        return True, "en ligne"
+            except Exception:
+                pass
+            return False, f"injoignable ({e})"
+
+        return False, "injoignable"
+
+    def is_available(self, timeout: float = 3.0) -> bool:
+        """Retourne True si le serveur Ollama répond, False sinon."""
+        available, _ = self.check_availability(timeout=timeout)
+        return available
+
     def discover_aliases(
         self,
         student_name: str,
@@ -111,7 +148,12 @@ class AnonymizationAgentHarness:
         Interroge l'agent Strands / Ollama avec le manifeste complet de la remise
         pour découvrir tous les alias, identifiants d'entités et variantes du nom.
         Retourne la liste des alias identifiés.
+        Ne tente rien si Ollama ne répond pas.
         """
+        # Ne pas tenter l'utilisation d'Ollama s'il ne répond pas
+        if not self.is_available(timeout=2.0):
+            return []
+
         files_preview = "\n".join(f"- {f}" for f in filenames[:50])
         if len(filenames) > 50:
             files_preview += f"\n... et {len(filenames) - 50} autres fichiers."
@@ -148,6 +190,7 @@ class AnonymizationAgentHarness:
                     temperature=0.1,
                     additional_args={"format": "json"},
                     options={"num_predict": 256, "temperature": 0.1},
+                    ollama_client_args={"timeout": 15.0},
                 )
                 agent_kwargs = {"model": model}
                 if self.callback_handler:
@@ -161,7 +204,7 @@ class AnonymizationAgentHarness:
             except Exception:
                 pass
 
-        # 2. Fallback direct via l'API Ollama (format JSON strict, timeout 20s)
+        # 2. Fallback direct via l'API Ollama (format JSON strict, timeout 15s)
         try:
             req_data = {
                 "model": self.model_id,
@@ -174,11 +217,11 @@ class AnonymizationAgentHarness:
                 },
             }
             req = urllib.request.Request(
-                f"{self.host}/api/generate",
+                f"{self.host.rstrip('/')}/api/generate",
                 data=json.dumps(req_data).encode("utf-8"),
                 headers={"Content-Type": "application/json", "User-Agent": "TeamsBlinderAgent"},
             )
-            with urllib.request.urlopen(req, timeout=20) as resp:
+            with urllib.request.urlopen(req, timeout=15) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 response_str = data.get("response", "")
                 discovered = self._extract_json_aliases(response_str)

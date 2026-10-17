@@ -50,6 +50,28 @@ class TestAnonymizationAgentHarness(unittest.TestCase):
             (harness.max_turns, harness.max_tool_calls, harness.max_repeated_calls), (7, 11, 2)
         )
 
+    @patch("anonymizer.agent_harness.load_config", return_value=AGENT_CONFIG)
+    @patch("urllib.request.urlopen", side_effect=Exception("Connection refused"))
+    def test_is_available_returns_false_when_offline(self, mock_urlopen, load_config):
+        harness = AnonymizationAgentHarness()
+        self.assertFalse(harness.is_available(timeout=0.1))
+        is_online, msg = harness.check_availability(timeout=0.1)
+        self.assertFalse(is_online)
+        self.assertIn("injoignable", msg)
+
+    @patch("anonymizer.agent_harness.load_config", return_value=AGENT_CONFIG)
+    @patch.object(AnonymizationAgentHarness, "is_available", return_value=False)
+    def test_discover_aliases_does_not_attempt_when_ollama_offline(self, mock_is_available, load_config):
+        harness = AnonymizationAgentHarness()
+        aliases = harness.discover_aliases(
+            student_name="Test Student",
+            da="1234567",
+            alias="etudiant01",
+            filenames=["test.txt"],
+            snippets=["test"],
+        )
+        self.assertEqual(aliases, [])
+
 
 class TestAgentLoopGuard(unittest.TestCase):
     def test_repeated_identical_calls_trip_guard(self):

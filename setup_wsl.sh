@@ -112,7 +112,14 @@ if ! command -v ollama &> /dev/null; then
     echo "Installation d'Ollama via le script officiel..."
     curl -fsSL https://ollama.com/install.sh | sh
 else
-    echo "✔ Ollama est déjà installé : $(ollama --version)"
+    OLLAMA_PATH="$(command -v ollama)"
+    # Timeout de 1s pour éviter tout blocage si le client tente de contacter le serveur hors-ligne
+    OLLAMA_VER="$(timeout 1 ollama --version 2>/dev/null || true)"
+    if [ -n "$OLLAMA_VER" ]; then
+        echo "✔ Ollama est déjà installé : $OLLAMA_VER"
+    else
+        echo "✔ Ollama est déjà installé ($OLLAMA_PATH)"
+    fi
 fi
 
 # 4. Préparation de l'environnement virtuel Python
@@ -127,24 +134,32 @@ if [ ! -d ".venv" ]; then
 fi
 
 source .venv/bin/activate
-pip install --upgrade pip --quiet
-echo "Installation de strands-agents[ollama]..."
-pip install 'strands-agents[ollama]' --quiet
-echo "✔ Dépendances Python installées avec succès."
+if ! python3 -c "import strands" &> /dev/null; then
+    pip install --upgrade pip --quiet
+    echo "Installation de strands-agents[ollama]..."
+    pip install 'strands-agents[ollama]' --quiet
+    echo "✔ Dépendances Python installées avec succès."
+else
+    echo "✔ Dépendances Python (strands-agents) déjà présentes."
+fi
 
 # 5. Démarrage du serveur Ollama et attente
 echo ""
 echo "[5/5] Vérification et démarrage du service Ollama..."
+export OLLAMA_HOST="127.0.0.1:11434"
+
 is_ollama_running() {
-    curl -s -f "http://localhost:11434" &> /dev/null
+    curl -s -f --connect-timeout 1 --max-time 2 "http://127.0.0.1:11434/api/version" &> /dev/null || \
+    curl -s -f --connect-timeout 1 --max-time 2 "http://127.0.0.1:11434" &> /dev/null
 }
 
 if is_ollama_running; then
-    echo "✔ Le serveur Ollama est déjà actif sur http://localhost:11434"
+    echo "✔ Le serveur Ollama est déjà actif sur http://127.0.0.1:11434"
 else
     echo "Démarrage du serveur Ollama..."
+    # Tentative systemd non-bloquante sans demander de mot de passe interactif
     if command -v systemctl &> /dev/null && systemctl is-system-running &> /dev/null; then
-        sudo systemctl start ollama || true
+        sudo -n systemctl start --no-block ollama 2>/dev/null || true
     fi
 
     if ! is_ollama_running; then
@@ -153,9 +168,9 @@ else
         echo "Serveur Ollama lancé en tâche de fond (PID: $OLLAMA_PID, logs: ollama.log)"
     fi
 
-    # Attente de disponibilité (jusqu'à 30 secondes)
+    # Attente de disponibilité (jusqu'à 25 secondes)
     WAIT_COUNT=0
-    until is_ollama_running || [ $WAIT_COUNT -ge 30 ]; do
+    until is_ollama_running || [ $WAIT_COUNT -ge 25 ]; do
         sleep 1
         WAIT_COUNT=$((WAIT_COUNT + 1))
         echo -n "."
@@ -165,7 +180,7 @@ else
     if is_ollama_running; then
         echo "✔ Serveur Ollama prêt !"
     else
-        echo "❌ Impossible de contacter le serveur Ollama après 30s. Consultez ollama.log."
+        echo "❌ Impossible de contacter le serveur Ollama après 25s. Consultez ollama.log."
         exit 1
     fi
 fi

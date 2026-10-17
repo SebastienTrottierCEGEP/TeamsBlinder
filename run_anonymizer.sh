@@ -14,14 +14,23 @@ if [ -d ".venv" ] && [ -f ".venv/bin/activate" ]; then
     source .venv/bin/activate
 fi
 
-# 2. Vérification rapide de l'état d'Ollama
-if curl -s "http://localhost:11434" &> /dev/null; then
-    echo "✔ Serveur Ollama actif sur http://localhost:11434"
-else
-    echo "⚠ Serveur Ollama non détecté sur le port 11434."
-    echo "  L'anonymisation utilisera le moteur déterministe ou démarrera Ollama."
-    echo "  (Pour démarrer Ollama au préalable : ./setup_wsl.sh)"
+# 2. Vérification de l'état d'Ollama (lecture de l'hôte dans config.properties si configuré)
+OLLAMA_HOST="http://localhost:11434"
+if [ -f "config.properties" ]; then
+    CONF_HOST=$(grep -E '^[[:space:]]*host[[:space:]]*=' config.properties | cut -d'=' -f2- | tr -d ' \r\n' || true)
+    if [ -n "$CONF_HOST" ]; then
+        OLLAMA_HOST="$CONF_HOST"
+    fi
 fi
+
+if ! curl -s --max-time 3 -f "${OLLAMA_HOST}/api/version" &> /dev/null && ! curl -s --max-time 3 -f "${OLLAMA_HOST}" &> /dev/null; then
+    echo "❌ ERREUR : Le serveur Ollama ne répond pas sur ${OLLAMA_HOST}."
+    echo "   L'anonymisation ne doit pas être tentée si Ollama ne répond pas."
+    echo "   Veuillez démarrer Ollama (ex: ./setup_wsl.sh ou 'ollama serve') avant de lancer l'anonymisation."
+    exit 1
+fi
+
+echo "✔ Serveur Ollama actif et joignable sur ${OLLAMA_HOST}"
 
 echo ""
 

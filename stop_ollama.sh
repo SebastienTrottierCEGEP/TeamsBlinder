@@ -7,10 +7,10 @@ echo "=========================================="
 
 STOPPED=false
 
-# 1. Arrêt via systemd si le service existe et est actif
+# 1. Arrêt via systemd si le service existe et est actif (non-bloquant)
 if command -v systemctl &> /dev/null && systemctl is-active --quiet ollama 2>/dev/null; then
     echo "Arrêt du service systemd 'ollama'..."
-    sudo systemctl stop ollama
+    sudo -n systemctl stop ollama 2>/dev/null || true
     STOPPED=true
 fi
 
@@ -37,7 +37,7 @@ if pgrep -x "ollama" &> /dev/null; then
 fi
 
 # 3. Vérification que le port 11434 est bien libéré
-if curl -s "http://localhost:11434" &> /dev/null; then
+if curl -s --connect-timeout 1 --max-time 1 "http://127.0.0.1:11434" &> /dev/null; then
     echo "⚠ Le port 11434 répond toujours."
     echo "Il est possible qu'une instance d'Ollama tourne côté hôte Windows."
 else

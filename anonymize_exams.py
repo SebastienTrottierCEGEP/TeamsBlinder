@@ -59,9 +59,19 @@ def main():
 
     os.makedirs(dst_base, exist_ok=True)
 
-    # 2. Initialisation du gestionnaire de mapping et de l'agent harness
+    # 2. Initialisation du gestionnaire de mapping et vérification stricte d'Ollama
     tracker = MappingTracker(mapping_file, prefix=prefix)
     agent_harness = AnonymizationAgentHarness(host=host, model_id=model_id)
+
+    print(f"[*] Verification de l'accessibilite du serveur Ollama sur {host}...")
+    is_online, status_msg = agent_harness.check_availability(timeout=3.0)
+    if not is_online:
+        print(f"[!] ERREUR CRITIQUE : Le serveur Ollama ne repond pas sur '{host}' ({status_msg}).")
+        print("[!] L'anonymisation ne doit pas etre tentee si Ollama ne repond pas.")
+        print("[!] Veuillez demarrer Ollama (ex: ./setup_wsl.sh ou 'ollama serve') avant de lancer l'anonymisation.")
+        sys.exit(1)
+
+    print(f"[+] Serveur Ollama operationnel ({status_msg}).\n")
 
     # 3. Découverte des répertoires étudiants
     student_dirs = []
