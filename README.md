@@ -81,10 +81,25 @@ chmod +x run_anonymizer.sh
 python3 anonymize_exams.py
 ```
 
-### 2. Lancer les tests unitaires
+### 2. Dé-anonymiser un fichier (notes, commentaires, code)
+
+Génère automatiquement `<nom_fichier>_out.<ext>` en remplaçant les `etudiantXX` par les vrais noms et les `XXXXXXX` par les vrais codes DA :
 
 ```bash
-python3 -m unittest tests/test_anonymizer.py
+chmod +x deanonymize.sh
+./deanonymize.sh notes_examen.csv
+# -> Génère notes_examen_out.csv
+```
+
+Options disponibles :
+- `-o <fichier_sortie>` : Spécifier un chemin de sortie personnalisé.
+- `-m <mapping.csv>` : Spécifier un fichier de mapping alternatif.
+- `--append-da` : Ajoute systématiquement le DA entre parenthèses après le nom (`Nom (DA)`).
+
+### 3. Lancer les tests unitaires
+
+```bash
+python3 -m unittest discover tests
 ```
 
 ### 3. Gérer les modèles Ollama (TUI)
