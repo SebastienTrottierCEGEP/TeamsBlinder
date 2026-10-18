@@ -20,7 +20,7 @@ if hasattr(sys.stdout, "reconfigure"):
         pass
 
 from anonymizer.config import load_config
-from anonymizer.identity import extract_student_identity, MappingTracker
+from anonymizer.identity import extract_student_identity, get_student_sort_key, MappingTracker
 from anonymizer.file_operations import (
     prepare_student_submission,
     extract_zip_archives,
@@ -73,9 +73,9 @@ def main():
 
     print(f"[+] Serveur Ollama operationnel ({status_msg}).\n")
 
-    # 3. Découverte des répertoires étudiants
+    # 3. Découverte des répertoires étudiants (triés selon l'ordre alphabétique des noms de famille comme dans Teams)
     student_dirs = []
-    for entry in sorted(os.scandir(src_base), key=lambda e: e.name.lower()):
+    for entry in sorted(os.scandir(src_base), key=lambda e: get_student_sort_key(e.name)):
         if entry.is_dir() and not entry.name.startswith("."):
             student_dirs.append(entry)
 

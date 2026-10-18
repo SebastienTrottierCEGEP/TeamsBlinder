@@ -10,7 +10,12 @@ import zipfile
 from unittest.mock import patch
 
 from anonymizer.agent_harness import AgentLoopGuard, AgentLoopLimitError, AnonymizationAgentHarness
-from anonymizer.identity import extract_student_identity, MappingTracker
+from anonymizer.identity import (
+    extract_student_identity,
+    split_first_last_name,
+    get_student_sort_key,
+    MappingTracker,
+)
 from anonymizer.file_operations import (
     find_latest_version_dir,
     extract_zip_archives,
@@ -120,6 +125,35 @@ class TestIdentityExtraction(unittest.TestCase):
         name, da = extract_student_identity("Alice Martin_7654321")
         self.assertEqual(name, "Alice Martin")
         self.assertEqual(da, "7654321")
+
+    def test_split_first_last_name(self):
+        self.assertEqual(split_first_last_name("Gaetan Simard"), ("Simard", "Gaetan"))
+        self.assertEqual(split_first_last_name("Simard, Gaetan"), ("Simard", "Gaetan"))
+        self.assertEqual(split_first_last_name("Evelyne Gordon-Manningham"), ("Gordon-Manningham", "Evelyne"))
+        self.assertEqual(split_first_last_name("Mavrick Roy-Giasson"), ("Roy-Giasson", "Mavrick"))
+        self.assertEqual(split_first_last_name("Esai Emmanuel Kouevi"), ("Kouevi", "Esai Emmanuel"))
+        self.assertEqual(split_first_last_name("Ayoub Aziz Michel Berraud"), ("Berraud", "Ayoub Aziz Michel"))
+        self.assertEqual(split_first_last_name("Emmanuel Claude Mbessa Nneme"), ("Mbessa Nneme", "Emmanuel Claude"))
+
+    def test_alphabetical_sorting_by_last_name(self):
+        student_folders = [
+            "Gaetan Simard (2244612)",
+            "Ayoub Aziz Michel Berraud (2352341)",
+            "Mavrick Roy-Giasson (2538152)",
+            "Evelyne Gordon-Manningham (2539142)",
+            "Emmanuel Claude Mbessa Nneme (2341347)",
+        ]
+        sorted_folders = sorted(student_folders, key=get_student_sort_key)
+        self.assertEqual(
+            sorted_folders,
+            [
+                "Ayoub Aziz Michel Berraud (2352341)",    # B
+                "Evelyne Gordon-Manningham (2539142)",    # G
+                "Emmanuel Claude Mbessa Nneme (2341347)", # M
+                "Mavrick Roy-Giasson (2538152)",         # R
+                "Gaetan Simard (2244612)",                # S
+            ],
+        )
 
 
 class TestMappingTracker(unittest.TestCase):

@@ -8,6 +8,7 @@ import csv
 import datetime
 import os
 import re
+import unicodedata
 from typing import Dict, Optional, Tuple
 
 
@@ -45,6 +46,65 @@ def extract_student_identity(folder_name: str) -> Tuple[str, str]:
 
     # 4. Aucun DA trouvé dans le titre du dossier
     return cleaned, ""
+
+
+def normalize_for_sort(text: str) -> str:
+    """Supprime les accents et convertit en minuscules pour un tri alphabétique robuste."""
+    nfkd = unicodedata.normalize("NFKD", text)
+    clean = "".join(c for c in nfkd if not unicodedata.combining(c))
+    return clean.lower().strip()
+
+
+def split_first_last_name(student_name: str) -> Tuple[str, str]:
+    """
+    Extrait (nom_de_famille, prenoms) pour le tri alphabétique selon la convention Teams.
+    Gère les noms simples, les noms composés, avec particules et les formats 'Nom, Prénom'.
+    """
+    cleaned = student_name.strip()
+    if "," in cleaned:
+        parts = cleaned.split(",", 1)
+        return parts[0].strip(), parts[1].strip()
+
+    tokens = cleaned.split()
+    if len(tokens) == 0:
+        return "", ""
+    if len(tokens) == 1:
+        return tokens[0], ""
+    if len(tokens) == 2:
+        return tokens[1], tokens[0]
+
+    particles = {"de", "du", "des", "le", "la", "van", "von", "da", "di", "del", "della"}
+
+    # 4 composantes (ex: Emmanuel Claude Mbessa Nneme, Ayoub Aziz Michel Berraud)
+    if len(tokens) == 4:
+        if tokens[2].lower() in particles:
+            return " ".join(tokens[2:]), " ".join(tokens[:2])
+        if tokens[2].lower() in {"michel", "jean", "pierre", "marie", "paul"}:
+            return tokens[3], " ".join(tokens[:3])
+        return " ".join(tokens[2:]), " ".join(tokens[:2])
+
+    # 3 composantes (ex: Esai Emmanuel Kouevi, Marie de France)
+    if len(tokens) == 3:
+        if tokens[1].lower() in particles:
+            return f"{tokens[1]} {tokens[2]}", tokens[0]
+        return tokens[2], f"{tokens[0]} {tokens[1]}"
+
+    # Plus de 4 composantes : par défaut le dernier mot est le nom
+    return tokens[-1], " ".join(tokens[:-1])
+
+
+def get_student_sort_key(folder_or_name: str) -> Tuple[str, str, str]:
+    """
+    Génère une clé de tri tuple (nom_de_famille, prenoms, da)
+    assurant l'ordre alphabétique des noms de famille tel qu'affiché dans Microsoft Teams.
+    """
+    name, da = extract_student_identity(folder_or_name)
+    last_name, first_name = split_first_last_name(name)
+    return (
+        normalize_for_sort(last_name),
+        normalize_for_sort(first_name),
+        da,
+    )
 
 
 class MappingTracker:
