@@ -75,7 +75,7 @@ def split_first_last_name(student_name: str) -> Tuple[str, str]:
 
     particles = {"de", "du", "des", "le", "la", "van", "von", "da", "di", "del", "della"}
 
-    # 4 composantes (ex: Emmanuel Claude Mbessa Nneme, Ayoub Aziz Michel Berraud)
+    # 4 composantes (ex: Jordan Avery Pierre Stone, Robin Casey Willow Birch)
     if len(tokens) == 4:
         if tokens[2].lower() in particles:
             return " ".join(tokens[2:]), " ".join(tokens[:2])
@@ -83,7 +83,7 @@ def split_first_last_name(student_name: str) -> Tuple[str, str]:
             return tokens[3], " ".join(tokens[:3])
         return " ".join(tokens[2:]), " ".join(tokens[:2])
 
-    # 3 composantes (ex: Esai Emmanuel Kouevi, Marie de France)
+    # 3 composantes (ex: Sam Robin Harbor, Taylor de Sample)
     if len(tokens) == 3:
         if tokens[1].lower() in particles:
             return f"{tokens[1]} {tokens[2]}", tokens[0]

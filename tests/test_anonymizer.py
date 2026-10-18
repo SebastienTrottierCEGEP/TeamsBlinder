@@ -112,46 +112,46 @@ class TestAgentLoopGuard(unittest.TestCase):
 
 class TestIdentityExtraction(unittest.TestCase):
     def test_standard_teams_format(self):
-        name, da = extract_student_identity("Gaetan Simard (2244612)")
-        self.assertEqual(name, "Gaetan Simard")
-        self.assertEqual(da, "2244612")
+        name, da = extract_student_identity("Pat Sample (0000011)")
+        self.assertEqual(name, "Pat Sample")
+        self.assertEqual(da, "0000011")
 
     def test_format_with_spaces_and_parentheses(self):
-        name, da = extract_student_identity("Jean-Francois Tremblay ( 1234567 )")
-        self.assertEqual(name, "Jean-Francois Tremblay")
-        self.assertEqual(da, "1234567")
+        name, da = extract_student_identity("Riley Taylor ( 0000012 )")
+        self.assertEqual(name, "Riley Taylor")
+        self.assertEqual(da, "0000012")
 
     def test_format_with_underscore(self):
-        name, da = extract_student_identity("Alice Martin_7654321")
-        self.assertEqual(name, "Alice Martin")
-        self.assertEqual(da, "7654321")
+        name, da = extract_student_identity("Casey Morgan_0000013")
+        self.assertEqual(name, "Casey Morgan")
+        self.assertEqual(da, "0000013")
 
     def test_split_first_last_name(self):
-        self.assertEqual(split_first_last_name("Gaetan Simard"), ("Simard", "Gaetan"))
-        self.assertEqual(split_first_last_name("Simard, Gaetan"), ("Simard", "Gaetan"))
-        self.assertEqual(split_first_last_name("Evelyne Gordon-Manningham"), ("Gordon-Manningham", "Evelyne"))
-        self.assertEqual(split_first_last_name("Mavrick Roy-Giasson"), ("Roy-Giasson", "Mavrick"))
-        self.assertEqual(split_first_last_name("Esai Emmanuel Kouevi"), ("Kouevi", "Esai Emmanuel"))
-        self.assertEqual(split_first_last_name("Ayoub Aziz Michel Berraud"), ("Berraud", "Ayoub Aziz Michel"))
-        self.assertEqual(split_first_last_name("Emmanuel Claude Mbessa Nneme"), ("Mbessa Nneme", "Emmanuel Claude"))
+        self.assertEqual(split_first_last_name("Pat Sample"), ("Sample", "Pat"))
+        self.assertEqual(split_first_last_name("Sample, Pat"), ("Sample", "Pat"))
+        self.assertEqual(split_first_last_name("Casey Garden-Hill"), ("Garden-Hill", "Casey"))
+        self.assertEqual(split_first_last_name("Taylor River-Smith"), ("River-Smith", "Taylor"))
+        self.assertEqual(split_first_last_name("Sam Robin Harbor"), ("Harbor", "Sam Robin"))
+        self.assertEqual(split_first_last_name("Jordan Avery Pierre Stone"), ("Stone", "Jordan Avery Pierre"))
+        self.assertEqual(split_first_last_name("Robin Casey Willow Birch"), ("Willow Birch", "Robin Casey"))
 
     def test_alphabetical_sorting_by_last_name(self):
         student_folders = [
-            "Gaetan Simard (2244612)",
-            "Ayoub Aziz Michel Berraud (2352341)",
-            "Mavrick Roy-Giasson (2538152)",
-            "Evelyne Gordon-Manningham (2539142)",
-            "Emmanuel Claude Mbessa Nneme (2341347)",
+            "Sam Stone (0000018)",
+            "Taylor Baker (0000014)",
+            "Pat River-Smith (0000017)",
+            "Jordan Garden-Hill (0000015)",
+            "Casey Maple (0000016)",
         ]
         sorted_folders = sorted(student_folders, key=get_student_sort_key)
         self.assertEqual(
             sorted_folders,
             [
-                "Ayoub Aziz Michel Berraud (2352341)",    # B
-                "Evelyne Gordon-Manningham (2539142)",    # G
-                "Emmanuel Claude Mbessa Nneme (2341347)", # M
-                "Mavrick Roy-Giasson (2538152)",         # R
-                "Gaetan Simard (2244612)",                # S
+                "Taylor Baker (0000014)",
+                "Jordan Garden-Hill (0000015)",
+                "Casey Maple (0000016)",
+                "Pat River-Smith (0000017)",
+                "Sam Stone (0000018)",
             ],
         )
 
@@ -223,19 +223,19 @@ class TestZipExtraction(unittest.TestCase):
 class TestTextAnonymization(unittest.TestCase):
     def test_anonymize_name_and_da(self):
         raw_text = (
-            "// v2 de Gaetan Simard 2344612\n"
+            "// v2 de Pat Sample 0000019\n"
             "void f() {\n"
-            '  string db = "simard_gaetan.db";\n'
-            "  // Auteur : GaetanSimard\n"
+            '  string db = "sample_pat.db";\n'
+            "  // Auteur : PatSample\n"
             "}\n"
         )
-        patterns = generate_name_patterns("Gaetan Simard")
-        modified, count = anonymize_text_content(raw_text, "etudiant01", patterns, da="2244612")
+        patterns = generate_name_patterns("Pat Sample")
+        modified, count = anonymize_text_content(raw_text, "etudiant01", patterns, da="0000019")
 
-        self.assertNotIn("Gaetan Simard", modified)
-        self.assertNotIn("simard_gaetan", modified)
-        self.assertNotIn("GaetanSimard", modified)
-        self.assertNotIn("2344612", modified)
+        self.assertNotIn("Pat Sample", modified)
+        self.assertNotIn("sample_pat", modified)
+        self.assertNotIn("PatSample", modified)
+        self.assertNotIn("0000019", modified)
         self.assertIn("etudiant01", modified)
         self.assertIn("XXXXXXX", modified)
 
