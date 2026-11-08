@@ -189,7 +189,7 @@ class AnonymizationAgentHarness:
                     max_tokens=256,
                     temperature=0.1,
                     additional_args={"format": "json"},
-                    options={"num_predict": 256, "temperature": 0.1},
+                    options={"num_predict": 256, "temperature": 0.1, "num_ctx": 65536},
                     ollama_client_args={"timeout": 15.0},
                 )
                 agent_kwargs = {"model": model}
@@ -214,6 +214,7 @@ class AnonymizationAgentHarness:
                 "options": {
                     "temperature": 0.1,
                     "num_predict": 256,
+                    "num_ctx": 65536,
                 },
             }
             req = urllib.request.Request(

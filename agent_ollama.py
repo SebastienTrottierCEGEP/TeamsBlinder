@@ -89,7 +89,12 @@ def main():
         print("[!] Veuillez activer l'environnement virtuel (.venv) où strands est installé.")
         sys.exit(1)
 
-    model = OllamaModel(host=host, model_id=model_id, ollama_client_args={"timeout": 30.0})
+    model = OllamaModel(
+        host=host,
+        model_id=model_id,
+        options={"num_ctx": 65536},
+        ollama_client_args={"timeout": 30.0},
+    )
 
     # Gestionnaire de progression en direct
     progress_handler = ConsoleProgressHandler()
