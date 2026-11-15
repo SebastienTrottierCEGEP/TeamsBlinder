@@ -376,7 +376,7 @@ def anonymize_text_content(
             modified, n = target.subn(alias, modified)
             count += n
             continue
-        if len(target) < 3 or target == alias:
+        if len(target) <= 3 or target == alias:
             continue
         pattern = re.compile(re.escape(target), re.IGNORECASE)
         modified, n = pattern.subn(alias, modified)

@@ -221,6 +221,15 @@ class TestZipExtraction(unittest.TestCase):
 
 
 class TestTextAnonymization(unittest.TestCase):
+    def test_short_aliases_are_not_replaced_in_text(self):
+        text = "@x @ab @dao @daos"
+        aliases = ["x", "ab", "dao", "daos"]
+
+        modified, count = anonymize_text_content(text, "etudiant03", aliases)
+
+        self.assertEqual(modified, "@x @ab @dao @etudiant03")
+        self.assertEqual(count, 1)
+
     def test_anonymize_name_and_da(self):
         raw_text = (
             "// v2 de Pat Sample 0000019\n"
