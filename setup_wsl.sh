@@ -194,9 +194,31 @@ if [ -f "config.properties" ]; then
     fi
 fi
 
-# Téléchargement du modèle sélectionné
-echo "Téléchargement du modèle '$TARGET_MODEL' (si non présent)..."
-ollama pull "$TARGET_MODEL"
+# Vérification du modèle sélectionné avant de le télécharger s'il est absent.
+echo "Vérification du modèle '$TARGET_MODEL' dans Ollama..."
+if ! OLLAMA_MODELS="$(ollama list)"; then
+    echo "❌ Impossible de récupérer la liste des modèles Ollama." >&2
+    exit 1
+fi
+
+if awk -v model="$TARGET_MODEL" 'NR > 1 && ($1 == model || $1 == model ":latest") { found = 1 } END { exit !found }' <<< "$OLLAMA_MODELS"; then
+    echo "✔ Modèle '$TARGET_MODEL' disponible localement."
+else
+    MODELFILE="$SCRIPT_DIR/$TARGET_MODEL/Modelfile"
+    if [ -f "$MODELFILE" ]; then
+        echo "Modèle '$TARGET_MODEL' absent; création à partir de $MODELFILE..."
+        if ! ollama create "$TARGET_MODEL" -f "$MODELFILE"; then
+            echo "❌ Échec de la création du modèle '$TARGET_MODEL'." >&2
+            exit 1
+        fi
+    else
+        echo "Modèle '$TARGET_MODEL' absent; téléchargement avec ollama pull..."
+        if ! ollama pull "$TARGET_MODEL"; then
+            echo "❌ Échec du téléchargement du modèle '$TARGET_MODEL'." >&2
+            exit 1
+        fi
+    fi
+fi
 
 echo ""
 echo "=========================================="

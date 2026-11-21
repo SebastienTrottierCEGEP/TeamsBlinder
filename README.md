@@ -34,6 +34,8 @@ Il s'appuie sur une approche hybride robuste combinant des règles déterministe
 - **`stop_ollama.sh`** : Arrêt propre d'Ollama pour libérer la VRAM GPU.
 - **`tests/test_anonymizer.py`** : Suite de tests unitaires.
 
+`setup_wsl.sh` vérifie si le modèle configuré est déjà présent avec `ollama list`. S'il est absent et qu'un `Modelfile` existe dans le dossier portant le nom du modèle (par exemple `swe-agent-text/Modelfile`), le script le crée avec `ollama create`; sinon, il le télécharge avec `ollama pull`.
+
 ---
 
 ## ⚙️ Configuration (`config.properties`)
